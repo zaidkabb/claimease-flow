@@ -121,62 +121,136 @@ export default function ClaimProcessing() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content - 2 columns */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Agent Conversation Panel */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5 text-primary" />
-                  Agent Conversation
-                </CardTitle>
-                <CardDescription>AI workflow processing log</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {Object.entries(agentConfig).map(([agentKey, config]) => (
-                  <Collapsible
-                    key={agentKey}
-                    open={expandedAgents.includes(agentKey)}
-                    onOpenChange={() => toggleAgent(agentKey)}
-                  >
-                    <CollapsibleTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        className="w-full justify-between p-3 h-auto hover:bg-muted/50"
-                      >
-                        <div className="flex items-center gap-2">
-                          <config.icon className={cn('h-5 w-5', config.color)} />
-                          <span className="font-medium">{config.label}</span>
-                          {groupedMessages[agentKey] && (
-                            <span className="text-xs bg-muted px-2 py-0.5 rounded-full">
-                              {groupedMessages[agentKey].length} messages
-                            </span>
-                          )}
-                        </div>
-                        {expandedAgents.includes(agentKey) ? (
-                          <ChevronUp className="h-4 w-4" />
+            {/* Agent Decision Summary - For Customers */}
+            {user?.role === 'customer' ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Bot className="h-5 w-5 text-primary" />
+                    AI Decision Summary
+                  </CardTitle>
+                  <CardDescription>Overview of your claim processing status</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {/* Summary based on claim status */}
+                    <div className="p-4 bg-muted/30 rounded-lg border">
+                      <div className="flex items-start gap-3">
+                        {claim.status === 'approved' ? (
+                          <CheckCircle className="h-6 w-6 text-success mt-0.5" />
+                        ) : claim.status === 'rejected' ? (
+                          <XCircle className="h-6 w-6 text-destructive mt-0.5" />
+                        ) : claim.status === 'hitl_review' ? (
+                          <AlertTriangle className="h-6 w-6 text-warning mt-0.5" />
                         ) : (
-                          <ChevronDown className="h-4 w-4" />
+                          <Info className="h-6 w-6 text-info mt-0.5" />
                         )}
-                      </Button>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="px-3 pb-3">
-                      <div className="space-y-2 pl-7 border-l-2 border-muted ml-2">
-                        {(groupedMessages[agentKey] || []).map((msg) => (
-                          <div key={msg.id} className="flex gap-2 py-2">
-                            {getMessageIcon(msg.type)}
-                            <div>
-                              <p className="text-sm text-foreground">{msg.message}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {new Date(msg.timestamp).toLocaleTimeString()}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
+                        <div className="space-y-2">
+                          <h4 className="font-semibold text-foreground">
+                            {claim.status === 'approved' && 'Your claim has been approved'}
+                            {claim.status === 'rejected' && 'Your claim has been rejected'}
+                            {claim.status === 'hitl_review' && 'Your claim is under review'}
+                            {claim.status === 'processing' && 'Your claim is being processed'}
+                            {claim.status === 'pending' && 'Your claim is pending'}
+                          </h4>
+                          <p className="text-sm text-muted-foreground">
+                            {claim.status === 'approved' && 'All verification checks passed. Your claim has been processed successfully.'}
+                            {claim.status === 'rejected' && 'Unfortunately, your claim did not meet the required criteria.'}
+                            {claim.status === 'hitl_review' && 'A claims specialist is reviewing your submission for final approval.'}
+                            {claim.status === 'processing' && 'Our AI system is analyzing your documents and verifying information.'}
+                            {claim.status === 'pending' && 'Your claim has been received and is awaiting processing.'}
+                          </p>
+                        </div>
                       </div>
-                    </CollapsibleContent>
-                  </Collapsible>
-                ))}
-              </CardContent>
-            </Card>
+                    </div>
+
+                    {/* Processing Steps */}
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-medium text-foreground">Processing Steps</h4>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-3 p-3 rounded-lg bg-success/10 border border-success/20">
+                          <CheckCircle className="h-4 w-4 text-success" />
+                          <span className="text-sm">Document received and verified</span>
+                        </div>
+                        <div className="flex items-center gap-3 p-3 rounded-lg bg-success/10 border border-success/20">
+                          <CheckCircle className="h-4 w-4 text-success" />
+                          <span className="text-sm">Policy validated</span>
+                        </div>
+                        {(corrections || []).some(c => c.status === 'pending') && (
+                          <div className="flex items-center gap-3 p-3 rounded-lg bg-warning/10 border border-warning/20">
+                            <AlertTriangle className="h-4 w-4 text-warning" />
+                            <span className="text-sm">Some items flagged for review</span>
+                          </div>
+                        )}
+                        {claim.status === 'hitl_review' && (
+                          <div className="flex items-center gap-3 p-3 rounded-lg bg-info/10 border border-info/20">
+                            <Info className="h-4 w-4 text-info" />
+                            <span className="text-sm">Awaiting specialist review</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              /* Agent Conversation Panel - For Adjusters/Admins */
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5 text-primary" />
+                    Agent Conversation
+                  </CardTitle>
+                  <CardDescription>AI workflow processing log</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {Object.entries(agentConfig).map(([agentKey, config]) => (
+                    <Collapsible
+                      key={agentKey}
+                      open={expandedAgents.includes(agentKey)}
+                      onOpenChange={() => toggleAgent(agentKey)}
+                    >
+                      <CollapsibleTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          className="w-full justify-between p-3 h-auto hover:bg-muted/50"
+                        >
+                          <div className="flex items-center gap-2">
+                            <config.icon className={cn('h-5 w-5', config.color)} />
+                            <span className="font-medium">{config.label}</span>
+                            {groupedMessages[agentKey] && (
+                              <span className="text-xs bg-muted px-2 py-0.5 rounded-full">
+                                {groupedMessages[agentKey].length} messages
+                              </span>
+                            )}
+                          </div>
+                          {expandedAgents.includes(agentKey) ? (
+                            <ChevronUp className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="px-3 pb-3">
+                        <div className="space-y-2 pl-7 border-l-2 border-muted ml-2">
+                          {(groupedMessages[agentKey] || []).map((msg) => (
+                            <div key={msg.id} className="flex gap-2 py-2">
+                              {getMessageIcon(msg.type)}
+                              <div>
+                                <p className="text-sm text-foreground">{msg.message}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {new Date(msg.timestamp).toLocaleTimeString()}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
 
             {/* CAG Corrections Panel */}
             <Card>
